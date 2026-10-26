@@ -106,6 +106,8 @@ enum Command {
         #[arg(long, default_value_t = 300)]
         warm_seconds: u64,
         #[arg(long)]
+        no_chime: bool,
+        #[arg(long)]
         language: Option<String>,
     },
     /// Test cursor insertion without using the microphone.
@@ -240,6 +242,7 @@ fn run() -> Result<(), CliError> {
             hotkey,
             mode,
             warm_seconds,
+            no_chime,
             language,
         } => {
             let model = select_model(&catalog, model)?;
@@ -256,6 +259,7 @@ fn run() -> Result<(), CliError> {
                     },
                     warm_seconds,
                     language,
+                    chime: !no_chime,
                 },
             )?;
         }

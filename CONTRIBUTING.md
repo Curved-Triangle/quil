@@ -34,4 +34,4 @@ New runtime HTTP clients, telemetry, automatic updates, GPL/AGPL dependencies, a
 
 ## Repository workflow
 
-The repository is private during initial development. Do not make it public, publish releases, or publish model artifacts without maintainer approval. Code signing identities, notarization credentials, and secrets must never be committed.
+The repository is public as an early-development project. Do not tag a stable release or publish model artifacts without maintainer approval. Code signing identities, notarization credentials, and secrets must never be committed.

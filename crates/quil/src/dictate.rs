@@ -1,5 +1,6 @@
 use std::{
     path::{Path, PathBuf},
+    process::{Command as ProcessCommand, Stdio},
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -9,11 +10,20 @@ use std::{
     time::{Duration, Instant},
 };
 
+use global_hotkey::{
+    GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState,
+    hotkey::{Code, HotKey},
+};
 use quil_audio::{AudioError, MicrophoneCapture, resample_to_16k};
 use quil_core::{AudioBuffer, ModelSpec, TranscribeOptions, TranscriptionError};
 use quil_inference::{Execution, InferenceError, LoadedModel};
-use rdev::{Event, EventType, Key};
 use thiserror::Error;
+use winit::{
+    application::ApplicationHandler,
+    event::WindowEvent,
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
+    window::WindowId,
+};
 
 use crate::{
     insert::{self, InsertError, TextInserter},
@@ -22,6 +32,8 @@ use crate::{
 
 const TICK: Duration = Duration::from_millis(250);
 const MAX_WINDOW_SECONDS: usize = 30;
+const CHIME_START: &str = "chime-start.wav";
+const CHIME_STOP: &str = "chime-stop.wav";
 
 #[derive(Debug)]
 pub struct Options {
@@ -30,6 +42,7 @@ pub struct Options {
     pub mode: Mode,
     pub warm_seconds: u64,
     pub language: Option<String>,
+    pub chime: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -117,23 +130,50 @@ pub fn run(
     );
     let listener_sender = sender.clone();
     let hotkey_down = Arc::new(AtomicBool::new(false));
-    let listener_result = rdev::listen(move |event| {
-        dispatch_hotkey(&listener_sender, &hotkey_down, event, hotkey, mode);
-    });
+    GlobalHotKeyEvent::set_event_handler(Some(move |event| {
+        dispatch_hotkey(&listener_sender, &hotkey_down, event, mode);
+    }));
+    let manager =
+        GlobalHotKeyManager::new().map_err(|error| DictationError::Hotkey(format!("{error:?}")))?;
+    manager
+        .register(HotKey::new(None, hotkey))
+        .map_err(|error| DictationError::Hotkey(format!("{error:?}")))?;
+    let listener_result = (|| -> Result<(), DictationError> {
+        let event_loop =
+            EventLoop::new().map_err(|error| DictationError::Hotkey(format!("{error:?}")))?;
+        event_loop
+            .run_app(&mut HotkeyApp)
+            .map_err(|error| DictationError::Hotkey(format!("{error:?}")))
+    })();
     let _ = sender.send(Command::Shutdown);
     let _ = worker.join();
-    listener_result.map_err(|error| DictationError::Hotkey(format!("{error:?}")))
+    listener_result
+}
+
+struct HotkeyApp;
+
+impl ApplicationHandler for HotkeyApp {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        event_loop.set_control_flow(ControlFlow::Wait);
+    }
+
+    fn window_event(
+        &mut self,
+        _event_loop: &ActiveEventLoop,
+        _window_id: WindowId,
+        _event: WindowEvent,
+    ) {
+    }
 }
 
 fn dispatch_hotkey(
     sender: &SyncSender<Command>,
     hotkey_down: &AtomicBool,
-    event: Event,
-    hotkey: Key,
+    event: GlobalHotKeyEvent,
     mode: Mode,
 ) {
-    match event.event_type {
-        EventType::KeyPress(key) if key == hotkey => {
+    match event.state {
+        HotKeyState::Pressed => {
             if hotkey_down.swap(true, Ordering::AcqRel) {
                 return;
             }
@@ -143,34 +183,51 @@ fn dispatch_hotkey(
             };
             let _ = sender.try_send(command);
         }
-        EventType::KeyRelease(key) if key == hotkey => {
+        HotKeyState::Released => {
             hotkey_down.store(false, Ordering::Release);
             if mode == Mode::Hold {
                 let _ = sender.try_send(Command::Stop);
             }
         }
-        _ => {}
     }
 }
 
-fn parse_hotkey(value: &str) -> Result<Key, DictationError> {
+fn parse_hotkey(value: &str) -> Result<Code, DictationError> {
     match value.to_ascii_uppercase().as_str() {
-        "F1" => Ok(Key::F1),
-        "F2" => Ok(Key::F2),
-        "F3" => Ok(Key::F3),
-        "F4" => Ok(Key::F4),
-        "F5" => Ok(Key::F5),
-        "F6" => Ok(Key::F6),
-        "F7" => Ok(Key::F7),
-        "F8" => Ok(Key::F8),
-        "F9" => Ok(Key::F9),
-        "F10" => Ok(Key::F10),
-        "F11" => Ok(Key::F11),
-        "F12" => Ok(Key::F12),
+        "F1" => Ok(Code::F1),
+        "F2" => Ok(Code::F2),
+        "F3" => Ok(Code::F3),
+        "F4" => Ok(Code::F4),
+        "F5" => Ok(Code::F5),
+        "F6" => Ok(Code::F6),
+        "F7" => Ok(Code::F7),
+        "F8" => Ok(Code::F8),
+        "F9" => Ok(Code::F9),
+        "F10" => Ok(Code::F10),
+        "F11" => Ok(Code::F11),
+        "F12" => Ok(Code::F12),
         _ => Err(DictationError::Hotkey(format!(
             "unsupported hotkey `{value}`; choose F1-F12 so shortcuts never insert printable characters"
         ))),
     }
+}
+
+fn chime_path(filename: &str) -> PathBuf {
+    if let Some(directory) = std::env::var_os("QUIL_ASSET_DIR") {
+        return PathBuf::from(directory).join(filename);
+    }
+    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../assets")
+        .join(filename);
+    if source.exists() {
+        return source;
+    }
+    PathBuf::from(std::env::var_os("HOME").unwrap_or_default())
+        .join(".local")
+        .join("share")
+        .join("quil")
+        .join("assets")
+        .join(filename)
 }
 
 struct Worker {
@@ -294,6 +351,7 @@ impl Worker {
         self.silence_ticks = 0;
         self.last_inference = None;
         eprintln!("Quil listening…");
+        self.play_chime(CHIME_START);
         self.ensure_model()
     }
 
@@ -309,6 +367,7 @@ impl Worker {
                 self.transcribe_window(true)?;
             }
             self.last_used = Instant::now();
+            self.play_chime(CHIME_STOP);
             Ok(())
         })();
         self.reset_capture();
@@ -345,6 +404,22 @@ impl Worker {
         {
             self.model = None;
             eprintln!("Model unloaded after the idle timeout.");
+        }
+    }
+
+    fn play_chime(&self, filename: &str) {
+        if !self.options.chime {
+            return;
+        }
+        let path = chime_path(filename);
+        if path.exists() {
+            // `afplay` is a local system utility. Spawning is fire-and-forget so
+            // the inference worker never blocks on a notification sound.
+            let _ = ProcessCommand::new("afplay")
+                .arg(path)
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn();
         }
     }
 

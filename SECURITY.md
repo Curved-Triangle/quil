@@ -12,6 +12,7 @@ The macOS app milestones must ship with App Sandbox enabled and without incoming
 - Audio buffers are bounded and zeroed after use.
 - Logs must contain timings, errors, and counters—not audio or dictated text.
 - Benchmark audio comes from external documented corpora or synthetic generators, never from Quil microphone capture.
+- Notification chimes are original local WAV assets played by the system `afplay` utility; there is no online TTS or sound service.
 - Clipboard restoration is required when paste fallback is used in the later UI milestone.
 
 ## Model supply chain
@@ -24,7 +25,7 @@ The core excludes GPL/AGPL dependencies. Dependencies and the Rust toolchain are
 
 ## Reporting a vulnerability
 
-Please report vulnerabilities privately through GitHub Security Advisories for `permitzip/quil`. Do not include private dictated text, microphone recordings, tokens, or other secrets in a report. While the repository is private, contact an existing repository maintainer for access to the private reporting channel.
+Please report vulnerabilities privately through GitHub Security Advisories for `permitzip/quil`. Do not include private dictated text, microphone recordings, tokens, or other secrets in a report. Do not open a public issue for an unpatched vulnerability.
 
 ## Scope notes
 

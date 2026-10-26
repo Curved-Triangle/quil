@@ -4,7 +4,7 @@
 
 Quil is an open-source, fully local speech-to-text dictation app for macOS on Apple Silicon. The goal is simple: hold a hotkey in any app, speak, and have text appear at the cursor—without audio or transcription leaving the machine.
 
-> **Status:** private development. Milestone 1 is complete, and an early CLI version of global-hotkey streaming dictation is available. The native menu-bar app, full settings/model manager, and release hardening remain.
+> **Status:** early public development; experimental, not a stable release. Milestone 1 is complete, and global-hotkey streaming dictation is available. The native menu-bar app, full settings/model manager, and release hardening remain.
 
 ## Principles
 
@@ -12,6 +12,18 @@ Quil is an open-source, fully local speech-to-text dictation app for macOS on Ap
 - **Apple Silicon performance:** Metal, Core ML, and Accelerate paths are benchmarked rather than assumed.
 - **Private audio:** microphone samples remain in bounded memory buffers, are never written to disk, and are zeroed after use.
 - **Permissive licensing:** Quil is MIT. Models and third-party components are license-checked and documented.
+
+## Install and run
+
+Quil is a native macOS application, not a Docker workload. Global hotkeys, microphone access, Accessibility, and Apple Silicon inference all require the host. Install locally with no sudo or daemon:
+
+```bash
+make install
+make models
+make run
+```
+
+`make install` builds and installs `quil` and `quil-model-fetch` into `~/.local/bin` and the chimes into `~/.local/share/quil/assets`. `make models` explicitly downloads and verifies the default model. `make run` starts dictation in the foreground. Use `make test` for the test suite and `make check` for Clippy, audit, deny, and runtime network checks. A native menu-bar/launch-at-login experience remains a later milestone.
 
 ## Build
 
@@ -64,6 +76,7 @@ target/release/quil dictate
 ```
 
 - **Hold F6** (push-to-talk), speak, and release. Toggle mode is available with `--mode toggle`.
+- Start/stop chimes are enabled by default; use `--no-chime` to disable them. The sounds are original, locally synthesized WAV files, not an online TTS service. Preview with `afplay assets/chime-start.wav` or replace them via `QUIL_ASSET_DIR`.
 - Choose another function key with `--hotkey F5` through `--hotkey F12`. Function keys are used so the shortcut never inserts a printable character. Depending on your keyboard settings, you may need to hold **Fn** as well.
 - `--warm-seconds 300` keeps the model loaded for five idle minutes before unloading it. Set `--warm-seconds 0` to unload immediately after each session.
 - Select a microphone with `quil mics` and `--mic "MacBook Pro Microphone"`, or another model with `--model moonshine-base` / `--model whisper-large-v3-turbo`.
@@ -78,6 +91,10 @@ target/release/quil insert-test --delay-ms 1000 "hello from Quil"
 ```
 
 Focus the target field during the one-second delay. The inserter first tries `AXSelectedText`, then falls back to native keyboard events for controls such as terminal/editor fields. Dictated text is not logged. Audio remains in memory and is wiped as it is consumed.
+
+## Apple Silicon acceleration
+
+Quil uses acceleration when it wins rather than forcing every model onto one device. Whisper runs through whisper.cpp with **Metal + Accelerate** by default; `--execution cpu` opts out. Moonshine currently defaults to **ONNX Runtime CPU** because it was faster than the current dynamic-shape Core ML partition path on the benchmark machine. `--execution coreml` remains available for experiments, but it is not presented as an ANE-only or always-faster path. Exact results and provider caveats are in `BENCHMARKS.md`.
 
 ## Benchmarks
 

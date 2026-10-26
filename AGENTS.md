@@ -13,7 +13,9 @@ cargo audit --deny warnings
 cargo deny check
 ```
 
-Use the pinned Rust toolchain. `scripts/cargo.sh` sets `ORT_LIB_PATH` to the verified static ONNX Runtime and adds a repo-local CMake to PATH when available. Do not claim a command or benchmark passed unless it actually ran. Never invent benchmark numbers.
+Use the pinned Rust toolchain. `scripts/cargo.sh` sets `ORT_LIB_PATH` to the verified static ONNX Runtime and adds a repo-local CMake to PATH when available.
+
+For user-facing install/run flows, use `make install`, `make models`, and `make run`. Installation is user-local under `~/.local` and never uses Docker. `scripts/install.sh` copies the binaries and original chime assets. Do not add ElevenLabs, online TTS, or any other network-dependent notification service; `--no-chime` disables sounds. Do not claim a command or benchmark passed unless it actually ran. Never invent benchmark numbers.
 
 ## Architecture
 
@@ -36,7 +38,7 @@ Keep the runtime dependency graph free of HTTP clients, telemetry, automatic upd
 - Runtime app targets must not include network entitlements. Only microphone and accessibility permissions may be requested, with purpose text.
 - Keep `unsafe` out of pure-Rust crates. Isolate unavoidable platform FFI and justify every unsafe block with a comment explaining its invariants.
 - Keep direct dependencies and GitHub Actions pinned. Review Cargo.lock changes.
-- Do not make this private repository public without an explicit user request.
+- The repository is public as an early-development project; do not tag a stable release without an explicit user request.
 - Do not commit or push without separate, current-turn user confirmation.
 
 ## Documentation
