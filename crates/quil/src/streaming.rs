@@ -122,4 +122,22 @@ mod tests {
         committer.reset();
         assert_eq!(committer.update("fresh words"), "");
     }
+
+    // Regression guard: enigo's keyboard fallback synthesizes a real Tab
+    // keystroke for chunks beginning with '\t', so committer output—the only
+    // dictation text that reaches TextInserter—must never carry a tab,
+    // newline, or carriage return. This is currently guaranteed by the
+    // `split_whitespace` in `words`; keep the property pinned if the
+    // committer is ever refactored.
+    #[test]
+    fn never_emits_tabs_or_newlines() {
+        let mut committer = PartialCommitter::default();
+        let mut emitted = committer.update("alpha\tbeta\ngamma\r\ndelta");
+        emitted.push_str(&committer.update("alpha beta gamma delta epsilon"));
+        emitted.push_str(&committer.finish("epsilon zeta"));
+        assert!(!emitted.contains('\t'));
+        assert!(!emitted.contains('\n'));
+        assert!(!emitted.contains('\r'));
+        assert_eq!(emitted, "alpha beta gamma");
+    }
 }

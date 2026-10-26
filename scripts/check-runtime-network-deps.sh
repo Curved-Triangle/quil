@@ -8,9 +8,9 @@ set -eu
 PATTERN='(^| )(reqwest|ureq|hyper(-[a-z]+)?|http|httparse|http-body(-util)?|native-tls|tokio-(native|rust)ls|rustls(-[a-z]+)?|tls-api(-[a-z]+)?|openssl|curl|isahc|minreq|attohttpc|surf|fasthttp|awc|quinn) '
 
 for package in quil quil-audio quil-core quil-inference; do
-    if cargo tree -p "$package" --edges normal --prefix none | grep -E "$PATTERN" >/dev/null; then
+    if cargo tree --locked -p "$package" --edges normal --prefix none | grep -E "$PATTERN" >/dev/null; then
         echo "HTTP/TLS crate found in the runtime dependency graph of $package:" >&2
-        cargo tree -p "$package" --edges normal --prefix none |
+        cargo tree --locked -p "$package" --edges normal --prefix none |
             grep -E "$PATTERN" >&2 || true
         exit 1
     fi

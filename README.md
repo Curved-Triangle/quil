@@ -110,4 +110,4 @@ See [BENCHMARKS.md](BENCHMARKS.md) for the test matrix, measurements, and curren
 
 ## Contributing and security
 
-See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and [MODELS.md](MODELS.md). Quil is available under the [MIT License](LICENSE). The repository stays private until a deliberate open-source release.
+See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and [MODELS.md](MODELS.md). Quil is available under the [MIT License](LICENSE). The repository is public as an early-development project; stable releases will be tagged deliberately, not on a schedule.
