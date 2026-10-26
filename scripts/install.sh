@@ -14,6 +14,17 @@ scripts/cargo.sh build --release --workspace
 BIN_DIR="${QUIL_INSTALL_DIR:-$HOME/.local/bin}"
 ASSET_DIR="$HOME/.local/share/quil/assets"
 mkdir -p "$BIN_DIR" "$ASSET_DIR"
+
+# Never install through a pre-existing symlink: `install` would follow it and
+# clobber the symlink's target with a binary marked executable.
+for target in "$BIN_DIR/quil" "$BIN_DIR/quil-model-fetch" \
+    "$ASSET_DIR/chime-start.wav" "$ASSET_DIR/chime-stop.wav"; do
+    if [ -L "$target" ]; then
+        echo "Refusing to install over symlink: $target" >&2
+        exit 1
+    fi
+done
+
 install -m 755 target/release/quil "$BIN_DIR/quil"
 install -m 755 target/release/quil-model-fetch "$BIN_DIR/quil-model-fetch"
 install -m 644 assets/chime-start.wav assets/chime-stop.wav "$ASSET_DIR/"

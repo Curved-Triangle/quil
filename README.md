@@ -67,7 +67,7 @@ Microphone capture is never saved. The `transcribe` command is for files you del
 
 ## Hotkey dictation (early milestone 2/3)
 
-The CLI now supports a global function-key listener, rolling local inference with an energy VAD, and stable-prefix text insertion into the focused app. It is still a CLI, not the final menu-bar application.
+The CLI now supports a registered global function-key hotkey, rolling local inference with an energy VAD, and stable-prefix text insertion into the focused app. It is still a CLI, not the final menu-bar application. Quil registers a single system hotkey; it does not install a global keystroke listener.
 
 Install your model first, then run:
 
@@ -82,7 +82,7 @@ target/release/quil dictate
 - Select a microphone with `quil mics` and `--mic "MacBook Pro Microphone"`, or another model with `--model moonshine-base` / `--model whisper-large-v3-turbo`.
 - `--execution metal` is used for Whisper; Moonshine defaults to CPU because it was faster in local benchmarks.
 
-Permissions are deliberately separate: macOS microphone access captures speech, while Accessibility is used only for the global key listener and text insertion. If you run Quil inside Terminal, enable **Terminal** in System Settings → Privacy & Security → Accessibility. If you use another host app, enable that app instead. You can disable the permission after this proof of concept; a signed Quil app will request it under its own identity later.
+Permissions are deliberately separate: macOS microphone access captures speech, while Accessibility is used only for registering the hotkey and inserting text. If you run Quil inside Terminal, enable **Terminal** in System Settings → Privacy & Security → Accessibility. If you use another host app, enable that app instead. You can disable the permission after this proof of concept; a signed Quil app will request it under its own identity later.
 
 Test insertion without speaking:
 
@@ -90,7 +90,7 @@ Test insertion without speaking:
 target/release/quil insert-test --delay-ms 1000 "hello from Quil"
 ```
 
-Focus the target field during the one-second delay. The inserter first tries `AXSelectedText`, then falls back to native keyboard events for controls such as terminal/editor fields. Dictated text is not logged. Audio remains in memory and is wiped as it is consumed.
+Focus the target field during the one-second delay. The inserter first tries `AXSelectedText`, then falls back to native keyboard events for controls such as terminal/editor fields. Dictated text is not logged. Audio remains in memory and is wiped as it is consumed. Before every model load, Quil re-verifies each artifact's SHA-256 against the checked-in catalog; this adds a fraction of a second for the default Moonshine model and a few seconds for multi-gigabyte Whisper models.
 
 ## Apple Silicon acceleration
 

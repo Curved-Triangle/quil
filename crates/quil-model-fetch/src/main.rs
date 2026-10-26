@@ -4,7 +4,7 @@ use std::{
     fs::{self, File},
     io::{self, Read, Write},
     path::{Path, PathBuf},
-    time::Duration,
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use clap::{Parser, Subcommand};
@@ -146,7 +146,16 @@ fn download_file(client: &Client, file: &ModelFile, destination: &Path) -> Resul
         path: parent.to_path_buf(),
         source,
     })?;
-    let temporary = parent.join(format!(".quil-download-{}", std::process::id()));
+    // Unpredictable temporary name: a same-user process must not be able to
+    // pre-create or guess the path. `create_new` below refuses existing files.
+    let temporary = parent.join(format!(
+        ".quil-download-{}-{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|elapsed| elapsed.as_nanos())
+            .unwrap_or_default()
+    ));
 
     let result = (|| {
         let response = client.get(&file.url).send()?.error_for_status()?;
@@ -205,6 +214,14 @@ fn download_file(client: &Client, file: &ModelFile, destination: &Path) -> Resul
             path: destination.to_path_buf(),
             source,
         })?;
+        // The digest above covered the bytes written through this process's
+        // file descriptor, but `rename` resolves the path again. Re-verify the
+        // installed destination so a swap between hashing and the atomic rename
+        // cannot leave an unverified artifact in place; remove it on mismatch.
+        if let Err(error) = verify_file(destination, file) {
+            let _ = fs::remove_file(destination);
+            return Err(error);
+        }
         Ok(())
     })();
 

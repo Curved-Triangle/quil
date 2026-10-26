@@ -33,7 +33,7 @@ Keep the runtime dependency graph free of HTTP clients, telemetry, automatic upd
 
 - Never write captured microphone audio to disk, logs, crash reports, or test fixtures. Benchmark WAV files must come from documented external datasets or synthetic sources.
 - Zero captured audio buffers after use. Keep queues bounded; the audio callback must not allocate, lock, block, log, or perform I/O.
-- Every downloadable file needs an independently pinned SHA-256 in `models/catalog.json`. Verify before atomic installation. Never treat a checksum calculated from the same unverified download as the expected value.
+- Every downloadable file needs an independently pinned SHA-256 in `models/catalog.json`. Verify before atomic installation, re-verify the installed destination after the rename, and verify byte length plus SHA-256 again in the runtime before every model load. Never treat a checksum calculated from the same unverified download as the expected value, and never trust file size alone.
 - Verify model and dependency licenses before adding them. No GPL/AGPL in the core. Update `MODELS.md` and `deny.toml` together with model/backend changes.
 - Runtime app targets must not include network entitlements. Only microphone and accessibility permissions may be requested, with purpose text.
 - Keep `unsafe` out of pure-Rust crates. Isolate unavoidable platform FFI and justify every unsafe block with a comment explaining its invariants.

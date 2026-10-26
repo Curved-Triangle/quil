@@ -15,7 +15,6 @@ libc.workspace = true
 macos-accessibility-client = "=0.0.2"
 objc2-application-services = { version = "=0.3.2", features = ["AXError", "AXUIElement", "HIServices"] }
 objc2-core-foundation = "=0.3.2"
-rdev = "=0.5.3"
 winit = { version = "=0.30.13", default-features = false }
 quil-audio.workspace = true
 quil-core.workspace = true
