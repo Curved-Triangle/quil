@@ -9,7 +9,12 @@ repository.workspace = true
 
 [dependencies]
 clap.workspace = true
+enigo = { version = "=0.6.1", default-features = false }
 libc.workspace = true
+macos-accessibility-client = "=0.0.2"
+objc2-application-services = { version = "=0.3.2", features = ["AXError", "AXUIElement", "HIServices"] }
+objc2-core-foundation = "=0.3.2"
+rdev = "=0.5.3"
 quil-audio.workspace = true
 quil-core.workspace = true
 quil-inference.workspace = true

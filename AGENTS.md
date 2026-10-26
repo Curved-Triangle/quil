@@ -20,8 +20,10 @@ Use the pinned Rust toolchain. `scripts/cargo.sh` sets `ORT_LIB_PATH` to the ver
 - `quil-core`: model catalog, audio ownership, shared types, and text metrics.
 - `quil-audio`: Core Audio capture and bounded, real-time-safe sample transport.
 - `quil-inference`: local ASR backends behind a common interface.
-- `quil`: recording, file transcription, and benchmark CLI. No HTTP dependency.
+- `quil`: recording, file transcription, benchmarks, and early hotkey dictation. No HTTP dependency.
 - `quil-model-fetch`: the only component permitted to contain an HTTP client.
+
+`quil/src/dictate.rs` owns hotkey/session lifecycle. `streaming.rs` owns the energy VAD and append-only stable-prefix committer. `insert.rs` uses direct Core Foundation/AXUIElement bindings (`AXSelectedText`) with native keyboard-event fallback; do not reintroduce a Swift runtime dependency. Function keys are the only supported hotkeys so shortcuts cannot insert printable characters. Keep Accessibility and microphone explanations precise, and never log other keys or dictated text.
 
 Keep the runtime dependency graph free of HTTP clients, telemetry, automatic updates, and network-based model hubs. Model files are installed only by an explicit `quil-model-fetch` command or an equivalent deliberate UI action later.
 

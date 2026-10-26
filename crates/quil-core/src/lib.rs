@@ -5,7 +5,7 @@ mod catalog;
 mod paths;
 mod wer;
 
-pub use audio::{AudioBuffer, SAMPLE_RATE};
+pub use audio::{AudioBuffer, AudioCapacityError, SAMPLE_RATE};
 pub use catalog::{Backend, Catalog, CatalogError, ModelFile, ModelSpec, embedded_catalog};
 pub use paths::default_model_dir;
 pub use wer::{WerStats, normalized_words, word_error_rate};

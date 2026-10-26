@@ -1,4 +1,7 @@
 mod benchmark;
+mod dictate;
+mod insert;
+mod streaming;
 mod system;
 
 use std::{
@@ -47,6 +50,12 @@ enum ExecutionArg {
     Cpu,
 }
 
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum DictationModeArg {
+    Hold,
+    Toggle,
+}
+
 impl From<ExecutionArg> for Execution {
     fn from(value: ExecutionArg) -> Self {
         match value {
@@ -84,6 +93,27 @@ enum Command {
         #[arg(long)]
         language: Option<String>,
     },
+    /// Listen for a global hotkey and stream dictation into the focused app.
+    Dictate {
+        #[arg(long)]
+        model: Option<String>,
+        #[arg(long)]
+        mic: Option<String>,
+        #[arg(long, default_value = "F6")]
+        hotkey: String,
+        #[arg(long, value_enum, default_value_t = DictationModeArg::Hold)]
+        mode: DictationModeArg,
+        #[arg(long, default_value_t = 300)]
+        warm_seconds: u64,
+        #[arg(long)]
+        language: Option<String>,
+    },
+    /// Test cursor insertion without using the microphone.
+    InsertTest {
+        text: String,
+        #[arg(long, default_value_t = 1000)]
+        delay_ms: u64,
+    },
     /// Benchmark one model against a local JSON corpus manifest.
     Bench {
         #[arg(long)]
@@ -116,6 +146,8 @@ enum CliError {
     Inference(#[from] InferenceError),
     #[error(transparent)]
     Transcription(#[from] TranscriptionError),
+    #[error(transparent)]
+    Dictation(#[from] dictate::DictationError),
     #[error("I/O failed for {path}: {source}")]
     Io {
         path: PathBuf,
@@ -201,6 +233,34 @@ fn run() -> Result<(), CliError> {
             let result = transcriber.transcribe(audio.samples(), &TranscribeOptions { language });
             audio.clear();
             println!("{}", result?);
+        }
+        Command::Dictate {
+            model,
+            mic,
+            hotkey,
+            mode,
+            warm_seconds,
+            language,
+        } => {
+            let model = select_model(&catalog, model)?;
+            dictate::run(
+                model,
+                &model_dir,
+                cli.runtime.execution.into(),
+                dictate::Options {
+                    mic,
+                    hotkey,
+                    mode: match mode {
+                        DictationModeArg::Hold => dictate::Mode::Hold,
+                        DictationModeArg::Toggle => dictate::Mode::Toggle,
+                    },
+                    warm_seconds,
+                    language,
+                },
+            )?;
+        }
+        Command::InsertTest { text, delay_ms } => {
+            dictate::insert_test(&text, delay_ms)?;
         }
         Command::Bench {
             model,

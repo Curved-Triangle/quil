@@ -3,6 +3,30 @@ use std::process::Command;
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
+pub struct ToolVersions {
+    pub rustc: String,
+    pub cmake: String,
+}
+
+pub fn tool_versions() -> ToolVersions {
+    ToolVersions {
+        rustc: command_output("rustc", &["--version"]),
+        cmake: command_output("cmake", &["--version"])
+            .lines()
+            .next()
+            .unwrap_or("unknown")
+            .to_owned(),
+    }
+}
+
+pub fn unix_time() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0)
+}
+
+#[derive(Debug, Serialize)]
 pub struct Hardware {
     pub chip: String,
     pub architecture: String,
@@ -15,13 +39,23 @@ pub fn hardware() -> Hardware {
         chip: command_output("sysctl", &["-n", "machdep.cpu.brand_string"]),
         architecture: std::env::consts::ARCH.to_owned(),
         macos: command_output("sw_vers", &["-productVersion"]),
-        power: command_output("pmset", &["-g", "batt"])
-            .lines()
-            .last()
-            .unwrap_or("unknown")
-            .trim()
-            .to_owned(),
+        power: power_state(),
     }
+}
+
+fn power_state() -> String {
+    let output = command_output("pmset", &["-g", "batt"]);
+    let Some(line) = output.lines().find(|line| line.contains('%')) else {
+        return "unknown".into();
+    };
+    let details = line.split('\t').nth(1).unwrap_or(line);
+    details
+        .split(';')
+        .take(2)
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join("; ")
 }
 
 fn command_output(program: &str, arguments: &[&str]) -> String {

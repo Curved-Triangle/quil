@@ -36,7 +36,7 @@ NVIDIA Parakeet TDT 0.6B v2/v3 weights are currently labeled **CC-BY-4.0**, not 
 - [ONNX Runtime](https://github.com/microsoft/onnxruntime): MIT.
 - `ort` / `ort-sys`: MIT OR Apache-2.0; the exact pinned version and transitive licenses are enforced by `cargo deny`.
 
-Other direct Rust libraries use permissive MIT, Apache-2.0, or MIT OR Apache-2.0 licenses (`cpal`, `rtrb`, `rubato`, `clap`, `serde`, `serde_json`, `thiserror`, `zeroize`, `sha2`, `hound`, `ndarray`, and `reqwest`). `libc` is MIT OR Apache-2.0. Build and test tooling uses the same permissive policy; `cargo deny` checks the complete transitive graph.
+Other direct Rust libraries use permissive MIT, Apache-2.0, or MIT OR Apache-2.0 licenses (`cpal`, `rtrb`, `rubato`, `clap`, `serde`, `serde_json`, `thiserror`, `zeroize`, `sha2`, `hound`, `ndarray`, and `reqwest`). `libc` is MIT OR Apache-2.0. Hotkey and insertion uses MIT-licensed `rdev` and `enigo`, Apache-2.0 `macos-accessibility-client`, and `objc2-application-services` / `objc2-core-foundation` (MIT OR Apache-2.0 OR Zlib). Build and test tooling uses the same permissive policy; `cargo deny` checks the complete transitive graph.
 
 ONNX Runtime is linked from the macOS arm64/Core ML 1.31.0 artifact published by the `ort` project. `scripts/fetch_onnxruntime.py` performs an explicit build-time fetch and verifies both the pinned archive SHA-256 (`4033efca…68c`) and extracted static-library SHA-256 (`8a9d7b9c…641`) before installation under `.tools/`. It is not a runtime download and does not add an HTTP client to Quil.
 

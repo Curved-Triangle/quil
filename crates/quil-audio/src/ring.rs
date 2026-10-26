@@ -120,10 +120,18 @@ pub struct MonoPcmReader {
 
 impl MonoPcmReader {
     pub fn pop(&mut self) -> Option<f32> {
-        let slot = self.consumer.pop().ok()?;
-        let sample = slot.0;
-        // The popped slot is dropped here, wiping its ring-local copy. The
-        // returned `f32` belongs to the consumer-owned output buffer.
+        let mut chunk = self.consumer.read_chunk(1).ok()?;
+        let sample = {
+            let (first, second) = chunk.as_mut_slices();
+            let slot = first.first_mut().or_else(|| second.first_mut())?;
+            let sample = slot.0;
+            // Clear the actual ring storage before advancing the read index.
+            // `pop()` would only move the value out and leave the old bytes in
+            // the allocation; this in-place wipe is required for mic privacy.
+            slot.0.zeroize();
+            sample
+        };
+        chunk.commit_all();
         Some(sample)
     }
 

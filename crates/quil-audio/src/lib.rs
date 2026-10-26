@@ -5,7 +5,7 @@ mod pcm;
 mod ring;
 mod wav;
 
-pub use capture::{capture_microphone, input_device_names};
+pub use capture::{MicrophoneCapture, capture_microphone, input_device_names};
 pub use pcm::resample_to_16k;
 pub use ring::{MonoPcmReader, MonoPcmWriter, PcmSample, mono_ring};
 pub use wav::read_wav;

@@ -30,6 +30,8 @@ struct Clip {
 #[derive(Debug, Serialize)]
 pub struct BenchmarkReport {
     pub schema_version: u32,
+    pub recorded_unix: u64,
+    pub tool_versions: system::ToolVersions,
     pub model_id: String,
     pub model_revision: String,
     pub model_bytes: u64,
@@ -127,7 +129,9 @@ pub fn run(
     }
 
     Ok(BenchmarkReport {
-        schema_version: 1,
+        schema_version: 2,
+        recorded_unix: system::unix_time(),
+        tool_versions: system::tool_versions(),
         model_id: model.id.clone(),
         model_revision: model.revision.clone(),
         model_bytes: model.files.iter().map(|file| file.bytes).sum(),
