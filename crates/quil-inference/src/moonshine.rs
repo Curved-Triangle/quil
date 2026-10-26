@@ -400,7 +400,20 @@ mod tests {
         };
         let catalog = quil_core::embedded_catalog().expect("embedded catalog");
         let spec = catalog.model("moonshine-tiny").expect("moonshine-tiny");
-        let model_dir = Path::new(&model_dir).join("moonshine-tiny");
+        // `cargo test` runs the test with the crate directory as the working
+        // directory, while CI passes QUIL_TEST_MODEL_DIR relative to the
+        // repository root; resolve a relative value against the root the
+        // same way offline_runtime does, then canonicalize for clear errors.
+        let declared = Path::new(&model_dir);
+        let base = if declared.is_absolute() {
+            declared.to_path_buf()
+        } else {
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../..")
+                .join(declared)
+        };
+        let base = base.canonicalize().expect("QUIL_TEST_MODEL_DIR must exist");
+        let model_dir = base.join("moonshine-tiny");
         let first = load(spec, &model_dir, Execution::Cpu).expect("first model load");
         drop(first);
         // Regression: the dictation worker unloads idle models and reloads on
