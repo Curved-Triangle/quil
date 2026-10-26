@@ -76,6 +76,7 @@ target/release/quil dictate
 
 - **Hold F6** (push-to-talk), speak, and release. Toggle mode is available with `--mode toggle`.
 - A session that never receives its stop event — the key-up can be lost while apps change focus — is stopped at a 120-second safety cap (300 seconds in toggle mode), transcribed, and reported, so a stuck capture never runs unbounded.
+- Every session reports how it ended: the inserted word count, or a no-speech hint pointing at device selection and permission. The startup banner names the input device in use, because virtual audio bridges (Pro Tools, Zoom, Teams) can silently become the system default and deliver no sound.
 - Start/stop chimes are enabled by default; use `--no-chime` to disable them. The sounds are original, locally synthesized WAV files, not an online TTS service. Preview with `afplay assets/chime-start.wav` or replace them via `QUIL_ASSET_DIR`.
 - Choose another function key with `--hotkey F5` through `--hotkey F12`. Function keys are used so the shortcut never inserts a printable character. Depending on your keyboard settings, you may need to hold **Fn** as well.
 - `--warm-seconds 300` keeps the model loaded for five idle minutes before unloading it. Set `--warm-seconds 0` to unload immediately after each session.

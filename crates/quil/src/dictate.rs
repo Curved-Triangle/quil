@@ -100,6 +100,7 @@ pub fn run(
     insert::require_accessibility()?;
     let hotkey = parse_hotkey(&options.hotkey)?;
     let hotkey_label = options.hotkey.clone();
+    let mic_label = options.mic.clone();
     let mode = options.mode;
     let (sender, receiver) = sync_channel::<Command>(16);
     let (startup_sender, startup_receiver) = sync_channel(1);
@@ -137,6 +138,14 @@ pub fn run(
             Mode::Toggle => "toggle",
         }
     );
+    // Name the input up front: on machines with virtual audio bridges
+    // (Pro Tools, Zoom, Teams), the system default can be a silent device.
+    match mic_label.as_deref() {
+        Some(mic) => eprintln!("Using input device: {mic}."),
+        None => eprintln!(
+            "Using the system default input device; `quil mics` lists inputs and --mic selects one."
+        ),
+    }
     let listener_sender = sender.clone();
     GlobalHotKeyEvent::set_event_handler(Some(move |event| {
         dispatch_hotkey(&listener_sender, &hotkey_down, event, mode);
@@ -257,6 +266,7 @@ struct Worker {
     committer: PartialCommitter,
     hotkey_down: Arc<AtomicBool>,
     session_started: Option<Instant>,
+    session_words: usize,
     active: bool,
     speech_seen: bool,
     silence_ticks: u8,
@@ -284,6 +294,7 @@ impl Worker {
             committer: PartialCommitter::default(),
             hotkey_down,
             session_started: None,
+            session_words: 0,
             active: false,
             speech_seen: false,
             silence_ticks: 0,
@@ -355,6 +366,14 @@ impl Worker {
     fn report(&mut self, result: Result<(), DictationError>) {
         if let Err(error) = result {
             eprintln!("Quil dictation error: {error}");
+            if matches!(error, DictationError::Audio(AudioError::Stream)) {
+                eprintln!(
+                    "The microphone stream ended early: check microphone permission for this \
+                     app in System Settings → Privacy & Security → Microphone, that no other \
+                     app is holding the input, and that the input device still exists. \
+                     `quil mics` lists inputs and --mic selects one."
+                );
+            }
             self.reset_capture();
         }
     }
@@ -397,7 +416,19 @@ impl Worker {
             self.play_chime(CHIME_STOP);
             Ok(())
         })();
+        let words = self.session_words;
         self.reset_capture();
+        if result.is_ok() {
+            if words > 0 {
+                eprintln!("Quil stopped listening; inserted {words} word(s).");
+            } else {
+                eprintln!(
+                    "Quil stopped listening; no speech detected. If this repeats, the input \
+                     device may be wrong or silent: `quil mics` lists inputs, --mic selects \
+                     one, and your terminal app needs microphone permission."
+                );
+            }
+        }
         result
     }
 
@@ -407,6 +438,7 @@ impl Worker {
         self.committer.reset();
         self.active = false;
         self.session_started = None;
+        self.session_words = 0;
         self.speech_seen = false;
         self.silence_ticks = 0;
         self.last_inference = None;
@@ -597,6 +629,7 @@ impl Worker {
         };
         if !delta.is_empty() {
             self.inserter.insert(&delta)?;
+            self.session_words += delta.split_whitespace().count();
         }
         Ok(())
     }
