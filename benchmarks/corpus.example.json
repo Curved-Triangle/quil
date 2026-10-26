@@ -1,0 +1,9 @@
+{
+  "name": "example-corpus",
+  "files": [
+    {
+      "audio": "relative/path/to/16khz-mono.wav",
+      "reference": "REFERENCE TRANSCRIPT FOR THIS UTTERANCE"
+    }
+  ]
+}

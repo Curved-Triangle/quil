@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  ORT_LIB_PATH: ${{ github.workspace }}/.tools/onnxruntime/lib
+
+concurrency:
+  group: quil-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Restore Cargo cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+      - name: Install pinned Rust toolchain
+        run: rustup show
+      - name: Require CMake
+        run: |
+          if ! command -v cmake >/dev/null; then
+            brew install cmake
+          fi
+          cmake --version
+      - name: Prepare verified ONNX Runtime
+        run: python3 scripts/fetch_onnxruntime.py
+      - name: Fetch locked dependencies
+        run: cargo fetch --locked
+      - name: rustfmt
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Tests
+        run: cargo test --workspace --locked
+      - name: Runtime dependency network audit
+        run: scripts/check-runtime-network-deps.sh
+
+  supply-chain:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust toolchain
+        run: rustup show
+      - name: cargo audit
+        run: |
+          cargo install cargo-audit --version 0.22.2 --locked
+          cargo audit --deny warnings
+      - name: cargo deny
+        run: |
+          cargo install cargo-deny --version 0.20.2 --locked
+          cargo deny check
+
+  benchmark:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust toolchain
+        run: rustup show
+      - name: Require CMake
+        run: |
+          if ! command -v cmake >/dev/null; then
+            brew install cmake
+          fi
+      - name: Prepare verified ONNX Runtime
+        run: python3 scripts/fetch_onnxruntime.py
+      - name: Restore benchmark model
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: benchmark-data/ci-models
+          key: ${{ runner.os }}-quil-model-${{ hashFiles('models/catalog.json') }}
+      - name: Build release binaries
+        run: cargo build --release --locked -p quil -p quil-model-fetch
+      - name: Install and verify pinned model explicitly
+        run: target/release/quil-model-fetch --model-dir benchmark-data/ci-models download moonshine-tiny
+      - name: Offline inference test
+        env:
+          QUIL_TEST_MODEL_DIR: benchmark-data/ci-models
+          QUIL_TEST_WAV: tests/fixtures/librispeech-sample.wav
+        run: cargo test -p quil --test offline_runtime --locked
+      - name: Benchmark regression check
+        run: |
+          target/release/quil \
+            --model-dir benchmark-data/ci-models \
+            --execution cpu \
+            bench \
+            --model moonshine-tiny \
+            --corpus tests/fixtures/benchmark-corpus.json \
+            --runs 1 \
+            --max-rtf 0.25 \
+            --max-wer 0.25 \
+            --max-load-ms 120000 \
+            --output benchmark-results.json
+      - name: Upload benchmark result
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: quil-benchmark-${{ runner.os }}-${{ runner.arch }}
+          path: benchmark-results.json
+          if-no-files-found: error
+          retention-days: 30

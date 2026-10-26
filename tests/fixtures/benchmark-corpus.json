@@ -1,0 +1,9 @@
+{
+  "name": "mini-librispeech-ci-smoke",
+  "files": [
+    {
+      "audio": "librispeech-sample.wav",
+      "reference": "BECAUSE YOU WERE SLEEPING INSTEAD OF CONQUERING THE LOVELY ROSE PRINCESS HAS BECOME A FIDDLE WITHOUT A BOW WHILE POOR SHAGGY SITS THERE A COOING DOVE"
+    }
+  ]
+}

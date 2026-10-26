@@ -1,0 +1,17 @@
+[package]
+name = "quil-audio"
+description = "Bounded in-memory Core Audio capture for Quil"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+cpal = "=0.18.2"
+hound.workspace = true
+quil-core.workspace = true
+rtrb.workspace = true
+rubato.workspace = true
+thiserror.workspace = true
+zeroize.workspace = true

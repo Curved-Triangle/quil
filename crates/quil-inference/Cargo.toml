@@ -1,0 +1,16 @@
+[package]
+name = "quil-inference"
+description = "Local Apple Silicon inference backends for Quil"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ndarray = "=0.17.2"
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "ndarray", "api-31", "coreml"] }
+quil-core.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+whisper-rs = { version = "=0.16.0", features = ["metal"] }

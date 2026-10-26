@@ -1,0 +1,15 @@
+[package]
+name = "quil-model-fetch"
+description = "Explicit checksum-verified model installer for Quil"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+clap.workspace = true
+quil-core.workspace = true
+reqwest = { version = "=0.13.5", default-features = false, features = ["blocking", "native-tls"] }
+sha2.workspace = true
+thiserror.workspace = true

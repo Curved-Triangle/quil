@@ -1,0 +1,4 @@
+[env]
+# ONNX Runtime 1.31's macOS arm64/Core ML build requires macOS 13.4+.
+MACOSX_DEPLOYMENT_TARGET = "13.4"
+ORT_LIB_PATH = { value = ".tools/onnxruntime/lib", relative = true }

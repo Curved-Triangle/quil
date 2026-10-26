@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "models": [
+    {
+      "id": "whisper-large-v3-turbo",
+      "name": "Whisper large-v3-turbo FP16",
+      "description": "Multilingual OpenAI Whisper large-v3-turbo for whisper.cpp Metal inference.",
+      "backend": "whisper",
+      "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+      "languages": ["multilingual"],
+      "license": "MIT",
+      "license_url": "https://github.com/openai/whisper/blob/main/LICENSE",
+      "files": [
+        {
+          "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo.bin?download=true",
+          "path": "model.bin",
+          "sha256": "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69",
+          "bytes": 1624555275
+        }
+      ]
+    },
+    {
+      "id": "distil-whisper-large-v3",
+      "name": "Distil-Whisper large-v3 FP16",
+      "description": "English-only distilled Whisper large-v3 for whisper.cpp Metal inference.",
+      "backend": "whisper",
+      "revision": "0d78dd96ed9fc152325f63b53788fec3b43de031",
+      "languages": ["en"],
+      "license": "MIT",
+      "license_url": "https://github.com/huggingface/distil-whisper/blob/main/LICENSE",
+      "files": [
+        {
+          "url": "https://huggingface.co/distil-whisper/distil-large-v3-ggml/resolve/0d78dd96ed9fc152325f63b53788fec3b43de031/ggml-distil-large-v3.bin?download=true",
+          "path": "model.bin",
+          "sha256": "2883a11b90fb10ed592d826edeaee7d2929bf1ab985109fe9e1e7b4d2b69a298",
+          "bytes": 1519521155
+        }
+      ]
+    },
+    {
+      "id": "moonshine-tiny",
+      "name": "Moonshine Tiny FP32 ONNX",
+      "description": "English Moonshine Tiny merged ONNX encoder/decoder for low-latency local inference.",
+      "backend": "moonshine",
+      "revision": "48b4e427b587bcf67797a5be706d6ddc4a298149",
+      "languages": ["en"],
+      "license": "MIT",
+      "license_url": "https://github.com/moonshine-ai/moonshine/blob/main/LICENSE",
+      "default": true,
+      "files": [
+        {
+          "url": "https://huggingface.co/moonshine-ai/moonshine/resolve/48b4e427b587bcf67797a5be706d6ddc4a298149/onnx/merged/tiny/float/encoder_model.onnx?download=true",
+          "path": "encoder.onnx",
+          "sha256": "cbbf580f703b2af2137e0f6d14cd87f31cc67bd858bfd8715403a9489982d1a5",
+          "bytes": 30882331
+        },
+        {
+          "url": "https://huggingface.co/moonshine-ai/moonshine/resolve/48b4e427b587bcf67797a5be706d6ddc4a298149/onnx/merged/tiny/float/decoder_model_merged.onnx?download=true",
+          "path": "decoder.onnx",
+          "sha256": "4131cef00b62942e9cdef691101f2cc7dbbcd828d71eee8c6c46c28fd051d6cb",
+          "bytes": 78227550
+        },
+        {
+          "url": "https://huggingface.co/moonshine-ai/moonshine/resolve/48b4e427b587bcf67797a5be706d6ddc4a298149/ctranslate2/tiny/tokenizer.json?download=true",
+          "path": "tokenizer.json",
+          "sha256": "ed2324b3f699d8ba18a4030f33ba205d50b30ff46ff73f2b7d22661cc850efb4",
+          "bytes": 1985534
+        }
+      ]
+    },
+    {
+      "id": "moonshine-base",
+      "name": "Moonshine Base FP32 ONNX",
+      "description": "English Moonshine Base merged ONNX encoder/decoder for higher-accuracy local inference.",
+      "backend": "moonshine",
+      "revision": "48b4e427b587bcf67797a5be706d6ddc4a298149",
+      "languages": ["en"],
+      "license": "MIT",
+      "license_url": "https://github.com/moonshine-ai/moonshine/blob/main/LICENSE",
+      "files": [
+        {
+          "url": "https://huggingface.co/moonshine-ai/moonshine/resolve/48b4e427b587bcf67797a5be706d6ddc4a298149/onnx/merged/base/float/encoder_model.onnx?download=true",
+          "path": "encoder.onnx",
+          "sha256": "153e128e7abd64a74ee47f2c3f585c3171c4d46cbb368b032827934c4e01e779",
+          "bytes": 80818781
+        },
+        {
+          "url": "https://huggingface.co/moonshine-ai/moonshine/resolve/48b4e427b587bcf67797a5be706d6ddc4a298149/onnx/merged/base/float/decoder_model_merged.onnx?download=true",
+          "path": "decoder.onnx",
+          "sha256": "58778763ca8438963190244d6b26572bdca2cedec56a4b91e828f3f2d69ef3c5",
+          "bytes": 166211345
+        },
+        {
+          "url": "https://huggingface.co/moonshine-ai/moonshine/resolve/48b4e427b587bcf67797a5be706d6ddc4a298149/ctranslate2/base/tokenizer.json?download=true",
+          "path": "tokenizer.json",
+          "sha256": "ed2324b3f699d8ba18a4030f33ba205d50b30ff46ff73f2b7d22661cc850efb4",
+          "bytes": 1985534
+        }
+      ]
+    }
+  ]
+}

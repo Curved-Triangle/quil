@@ -1,0 +1,11 @@
+/target/
+/.tools/
+/benchmark-data/
+/benchmark-results.json
+/models/artifacts/
+/dist/
+.DS_Store
+*.profraw
+*.profdata
+__pycache__/
+*.pyc

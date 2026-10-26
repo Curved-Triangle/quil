@@ -1,0 +1,18 @@
+[package]
+name = "quil"
+description = "Fully local macOS dictation CLI and benchmark harness"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+clap.workspace = true
+libc.workspace = true
+quil-audio.workspace = true
+quil-core.workspace = true
+quil-inference.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
