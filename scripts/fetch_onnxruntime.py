@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import shutil
 import tarfile
+import tempfile
 import urllib.request
 
 URL = "https://cdn.pyke.io/0/pyke:ort-rs/ms@1.31.0/aarch64-apple-darwin+coreml.tar.lzma2"
@@ -24,7 +25,6 @@ LIB_SHA256 = "8a9d7b9ce57feaa0456df9b5c158c4c0ff948925edb58f523126a3bf27136641"
 
 ROOT = Path(__file__).resolve().parent.parent
 DOWNLOAD = ROOT / ".tools" / "downloads" / "onnxruntime.tar.lzma2"
-TAR = ROOT / ".tools" / "downloads" / "onnxruntime.tar"
 LIB = ROOT / ".tools" / "onnxruntime" / "lib" / "libonnxruntime.a"
 
 
@@ -79,31 +79,44 @@ def extract() -> None:
         format=lzma.FORMAT_RAW,
         filters=[{"id": lzma.FILTER_LZMA2, "preset": 9}],
     )
-    with DOWNLOAD.open("rb") as source, TAR.open("wb") as output:
-        for chunk in iter(lambda: source.read(1024 * 1024), b""):
-            output.write(decompressor.decompress(chunk))
-    if not decompressor.eof or TAR.stat().st_size != TAR_BYTES:
-        raise RuntimeError("unexpected ONNX Runtime tar stream")
+    # Exclusively created, unpredictable temporary files: a pre-existing symlink
+    # or stale file at a fixed path must never be followed or clobbered before
+    # the digest checks run.
+    DOWNLOAD.parent.mkdir(parents=True, exist_ok=True)
+    tar_fd, tar_name = tempfile.mkstemp(prefix="onnxruntime-", suffix=".tar", dir=DOWNLOAD.parent)
+    tar_path = Path(tar_name)
+    try:
+        with DOWNLOAD.open("rb") as source, os.fdopen(tar_fd, "wb") as output:
+            for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                output.write(decompressor.decompress(chunk))
+        if not decompressor.eof or tar_path.stat().st_size != TAR_BYTES:
+            raise RuntimeError("unexpected ONNX Runtime tar stream")
 
-    with tarfile.open(TAR, mode="r:") as archive:
-        members = archive.getmembers()
-        if len(members) != 1 or members[0].name != "libonnxruntime.a" or not members[0].isfile():
-            raise RuntimeError("unexpected files in ONNX Runtime archive")
-        source = archive.extractfile(members[0])
-        if source is None:
-            raise RuntimeError("libonnxruntime.a is unreadable")
-        LIB.parent.mkdir(parents=True, exist_ok=True)
-        temporary = LIB.with_suffix(".download")
-        with source, temporary.open("wb") as output:
-            shutil.copyfileobj(source, output, length=1024 * 1024)
-    require_digest(temporary, LIB_BYTES, LIB_SHA256)
-    os.replace(temporary, LIB)
+        with tarfile.open(tar_path, mode="r:") as archive:
+            members = archive.getmembers()
+            if len(members) != 1 or members[0].name != "libonnxruntime.a" or not members[0].isfile():
+                raise RuntimeError("unexpected files in ONNX Runtime archive")
+            source = archive.extractfile(members[0])
+            if source is None:
+                raise RuntimeError("libonnxruntime.a is unreadable")
+            LIB.parent.mkdir(parents=True, exist_ok=True)
+            lib_fd, lib_name = tempfile.mkstemp(prefix="onnxruntime-", suffix=".lib", dir=LIB.parent)
+            lib_path = Path(lib_name)
+            try:
+                with source, os.fdopen(lib_fd, "wb") as output:
+                    shutil.copyfileobj(source, output, length=1024 * 1024)
+                require_digest(lib_path, LIB_BYTES, LIB_SHA256)
+                os.replace(lib_path, LIB)
+            finally:
+                lib_path.unlink(missing_ok=True)
+    finally:
+        tar_path.unlink(missing_ok=True)
+    require_digest(LIB, LIB_BYTES, LIB_SHA256)
 
 
 def main() -> None:
     download()
     extract()
-    require_digest(LIB, LIB_BYTES, LIB_SHA256)
     print(f"Verified ONNX Runtime 1.31.0: {LIB}")
 
 

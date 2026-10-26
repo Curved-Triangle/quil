@@ -9,7 +9,7 @@ if [ "$(uname -s)" != "Darwin" ] || [ "$(uname -m)" != "arm64" ]; then
 fi
 
 python3 scripts/fetch_onnxruntime.py
-scripts/cargo.sh build --release --workspace
+scripts/cargo.sh build --release --workspace --locked
 
 BIN_DIR="${QUIL_INSTALL_DIR:-$HOME/.local/bin}"
 ASSET_DIR="$HOME/.local/share/quil/assets"

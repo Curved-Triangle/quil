@@ -496,9 +496,9 @@ impl Worker {
         }
         let path = chime_path(filename);
         if path.exists() {
-            // `afplay` is a local system utility. Spawning is fire-and-forget so
-            // the inference worker never blocks on a notification sound.
-            let _ = ProcessCommand::new("afplay")
+            // `afplay` is a local system utility, invoked by absolute path so a
+            // poisoned PATH entry cannot redirect the spawn.
+            let _ = ProcessCommand::new("/usr/bin/afplay")
                 .arg(path)
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
@@ -594,7 +594,11 @@ impl Worker {
     }
 
     fn transcribe_window(&mut self, final_chunk: bool) -> Result<(), DictationError> {
-        let (input_rate, samples) = {
+        // Length-check before copying. The short-window early return used to
+        // leave an unwiped PCM `Vec` behind, contradicting the claim that
+        // captured audio is zeroed after use. The single allocation below is
+        // an `AudioBuffer`, which wipes itself on drop.
+        let clip = {
             let native = self
                 .native_audio
                 .as_ref()
@@ -603,12 +607,13 @@ impl Worker {
             let window_seconds = if final_chunk { 12 } else { 6 };
             let window = input_rate as usize * window_seconds;
             let start = native.len().saturating_sub(window);
-            (input_rate, native.samples()[start..].to_vec())
+            let selected = &native.samples()[start..];
+            if selected.len() < input_rate as usize / 10 {
+                return Ok(());
+            }
+            AudioBuffer::new(input_rate, selected.to_vec())
         };
-        if samples.len() < input_rate as usize / 10 {
-            return Ok(());
-        }
-        let mut audio = resample_to_16k(AudioBuffer::new(input_rate, samples))?;
+        let mut audio = resample_to_16k(clip)?;
         let model = self
             .model
             .as_mut()

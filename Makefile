@@ -3,7 +3,7 @@ SHELL := /bin/sh
 .PHONY: build run models test check tools install
 
 build:
-	scripts/cargo.sh build --release --workspace
+	scripts/cargo.sh build --release --workspace --locked
 
 run: models
 	target/release/quil dictate
@@ -26,5 +26,5 @@ tools:
 	cargo install --root .tools/cargo cargo-audit --version 0.22.2 --locked
 	cargo install --root .tools/cargo cargo-deny --version 0.20.2 --locked
 
-install: build
+install:
 	scripts/install.sh

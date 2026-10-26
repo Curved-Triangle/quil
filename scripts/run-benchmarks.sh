@@ -12,7 +12,7 @@ run_one() {
     execution=$2
     suffix=$3
     echo "==> $model ($execution)"
-    scripts/cargo.sh run --release -p quil -- \
+    scripts/cargo.sh run --release --locked -p quil -- \
         --model-dir benchmark-data/models \
         --execution "$execution" \
         bench \

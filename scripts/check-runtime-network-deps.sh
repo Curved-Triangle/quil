@@ -7,11 +7,17 @@ set -eu
 # depend on a network client, and it is not a runtime crate.
 PATTERN='(^| )(reqwest|ureq|hyper(-[a-z]+)?|http|httparse|http-body(-util)?|native-tls|tokio-(native|rust)ls|rustls(-[a-z]+)?|tls-api(-[a-z]+)?|openssl|curl|isahc|minreq|attohttpc|surf|fasthttp|awc|quinn) '
 
+# Fail closed: a `cargo tree` that cannot run proves nothing about the graph.
+# Treating its failure as "no matches" would report a clean runtime after an
+# incomplete or errored enumeration.
 for package in quil quil-audio quil-core quil-inference; do
-    if cargo tree --locked -p "$package" --edges normal --prefix none | grep -E "$PATTERN" >/dev/null; then
+    if ! tree=$(cargo tree --locked -p "$package" --edges normal --prefix none); then
+        echo "cargo tree failed for $package; refusing to report a clean dependency graph" >&2
+        exit 2
+    fi
+    if printf '%s\n' "$tree" | grep -E "$PATTERN" >/dev/null; then
         echo "HTTP/TLS crate found in the runtime dependency graph of $package:" >&2
-        cargo tree --locked -p "$package" --edges normal --prefix none |
-            grep -E "$PATTERN" >&2 || true
+        printf '%s\n' "$tree" | grep -E "$PATTERN" >&2 || true
         exit 1
     fi
 done
