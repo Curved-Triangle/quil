@@ -2,7 +2,7 @@
 
 use std::{
     fs::{self, File},
-    io::{self, Read, Write},
+    io::{self, IsTerminal, Read, Write},
     path::{Path, PathBuf},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -157,6 +157,14 @@ fn download_file(client: &Client, file: &ModelFile, destination: &Path) -> Resul
             .unwrap_or_default()
     ));
 
+    let show_progress = io::stdout().is_terminal();
+    if show_progress {
+        println!(
+            "Downloading {} ({:.1} MB) from the pinned URL…",
+            file.path,
+            file.bytes as f64 / 1_048_576.0
+        );
+    }
     let result = (|| {
         let response = client.get(&file.url).send()?.error_for_status()?;
         if let Some(length) = response.content_length()
@@ -191,6 +199,15 @@ fn download_file(client: &Client, file: &ModelFile, destination: &Path) -> Resul
                     file.url
                 )));
             }
+            if show_progress {
+                print!(
+                    "\r  {:3.0}%  {:.1} of {:.1} MB",
+                    100.0 * written as f64 / file.bytes as f64,
+                    written as f64 / 1_048_576.0,
+                    file.bytes as f64 / 1_048_576.0
+                );
+                let _ = io::stdout().flush();
+            }
             output
                 .write_all(&buffer[..count])
                 .map_err(|source| FetchError::Io {
@@ -208,6 +225,9 @@ fn download_file(client: &Client, file: &ModelFile, destination: &Path) -> Resul
             source,
         })?;
         drop(output);
+        if show_progress {
+            println!();
+        }
 
         verify_digest(&temporary, file, written, finish_hex(hasher))?;
         fs::rename(&temporary, destination).map_err(|source| FetchError::Io {

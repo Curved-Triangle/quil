@@ -19,11 +19,10 @@ Quil is a native macOS application, not a Docker workload. Global hotkeys, micro
 
 ```bash
 make install
-make models
 make run
 ```
 
-`make install` builds and installs `quil` and `quil-model-fetch` into `~/.local/bin` and the chimes into `~/.local/share/quil/assets`. `make models` explicitly downloads and verifies the default model. `make run` starts dictation in the foreground. Use `make test` for the test suite and `make check` for Clippy, audit, deny, and runtime network checks. A native menu-bar/launch-at-login experience remains a later milestone.
+`make install` builds and installs `quil` and `quil-model-fetch` into `~/.local/bin` and the chimes into `~/.local/share/quil/assets`. `make run` ensures the pinned default model first — already-verified files are checked and skipped, and anything missing is fetched with live progress shown — then starts dictation in the foreground. `make models` performs the same explicit model fetch on its own. Use `make test` for the test suite and `make check` for Clippy, audit, deny, and runtime network checks. A native menu-bar/launch-at-login experience remains a later milestone.
 
 ## Build
 
@@ -76,6 +75,7 @@ target/release/quil dictate
 ```
 
 - **Hold F6** (push-to-talk), speak, and release. Toggle mode is available with `--mode toggle`.
+- A session that never receives its stop event — the key-up can be lost while apps change focus — is stopped at a 120-second safety cap (300 seconds in toggle mode), transcribed, and reported, so a stuck capture never runs unbounded.
 - Start/stop chimes are enabled by default; use `--no-chime` to disable them. The sounds are original, locally synthesized WAV files, not an online TTS service. Preview with `afplay assets/chime-start.wav` or replace them via `QUIL_ASSET_DIR`.
 - Choose another function key with `--hotkey F5` through `--hotkey F12`. Function keys are used so the shortcut never inserts a printable character. Depending on your keyboard settings, you may need to hold **Fn** as well.
 - `--warm-seconds 300` keeps the model loaded for five idle minutes before unloading it. Set `--warm-seconds 0` to unload immediately after each session.

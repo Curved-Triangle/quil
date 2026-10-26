@@ -32,6 +32,13 @@ use crate::{
 
 const TICK: Duration = Duration::from_millis(250);
 const MAX_WINDOW_SECONDS: usize = 30;
+/// Safety cap on a continuous dictation session. A push-to-talk hold rarely
+/// exceeds a couple of minutes; if the key-release event is lost while apps
+/// change focus, nothing else on screen would stop a session that keeps
+/// capturing. Toggle sessions allow longer deliberate runs, so they use a
+/// wider cap.
+const MAX_HOLD_SESSION: Duration = Duration::from_secs(120);
+const MAX_TOGGLE_SESSION: Duration = Duration::from_secs(300);
 const CHIME_START: &str = "chime-start.wav";
 const CHIME_STOP: &str = "chime-stop.wav";
 
@@ -96,12 +103,14 @@ pub fn run(
     let mode = options.mode;
     let (sender, receiver) = sync_channel::<Command>(16);
     let (startup_sender, startup_receiver) = sync_channel(1);
+    let hotkey_down = Arc::new(AtomicBool::new(false));
+    let worker_gate = Arc::clone(&hotkey_down);
     let model = model.clone();
     let model_dir = model_dir.to_path_buf();
     let worker = thread::Builder::new()
         .name("quil-dictation".into())
         .spawn(move || {
-            let mut worker = match Worker::new(model, model_dir, execution, options) {
+            let mut worker = match Worker::new(model, model_dir, execution, options, worker_gate) {
                 Ok(worker) => {
                     let _ = startup_sender.send(Ok(()));
                     worker
@@ -129,7 +138,6 @@ pub fn run(
         }
     );
     let listener_sender = sender.clone();
-    let hotkey_down = Arc::new(AtomicBool::new(false));
     GlobalHotKeyEvent::set_event_handler(Some(move |event| {
         dispatch_hotkey(&listener_sender, &hotkey_down, event, mode);
     }));
@@ -192,6 +200,13 @@ fn dispatch_hotkey(
     }
 }
 
+fn session_cap(mode: Mode) -> Duration {
+    match mode {
+        Mode::Hold => MAX_HOLD_SESSION,
+        Mode::Toggle => MAX_TOGGLE_SESSION,
+    }
+}
+
 fn parse_hotkey(value: &str) -> Result<Code, DictationError> {
     match value.to_ascii_uppercase().as_str() {
         "F1" => Ok(Code::F1),
@@ -240,6 +255,8 @@ struct Worker {
     capture: Option<MicrophoneCapture>,
     native_audio: Option<AudioBuffer>,
     committer: PartialCommitter,
+    hotkey_down: Arc<AtomicBool>,
+    session_started: Option<Instant>,
     active: bool,
     speech_seen: bool,
     silence_ticks: u8,
@@ -253,6 +270,7 @@ impl Worker {
         model_dir: PathBuf,
         execution: Execution,
         options: Options,
+        hotkey_down: Arc<AtomicBool>,
     ) -> Result<Self, DictationError> {
         Ok(Self {
             model_spec,
@@ -264,6 +282,8 @@ impl Worker {
             capture: None,
             native_audio: None,
             committer: PartialCommitter::default(),
+            hotkey_down,
+            session_started: None,
             active: false,
             speech_seen: false,
             silence_ticks: 0,
@@ -309,8 +329,14 @@ impl Worker {
                 }
                 Err(RecvTimeoutError::Timeout) => {
                     if self.active {
-                        let result = self.tick();
-                        self.report(result);
+                        if self.session_expired() {
+                            self.recover_lost_release();
+                            let result = self.stop_session();
+                            self.report(result);
+                        } else {
+                            let result = self.tick();
+                            self.report(result);
+                        }
                     } else {
                         self.unload_if_cold();
                     }
@@ -347,6 +373,7 @@ impl Worker {
         ));
         self.committer.reset();
         self.active = true;
+        self.session_started = Some(Instant::now());
         self.speech_seen = false;
         self.silence_ticks = 0;
         self.last_inference = None;
@@ -379,6 +406,7 @@ impl Worker {
         self.native_audio = None;
         self.committer.reset();
         self.active = false;
+        self.session_started = None;
         self.speech_seen = false;
         self.silence_ticks = 0;
         self.last_inference = None;
@@ -405,6 +433,29 @@ impl Worker {
             self.model = None;
             eprintln!("Model unloaded after the idle timeout.");
         }
+    }
+
+    /// True when the active session ran past its mode's cap without a stop
+    /// event; the worker polls this on every 25 ms tick.
+    fn session_expired(&self) -> bool {
+        self.session_started
+            .is_some_and(|started| started.elapsed() >= session_cap(self.options.mode))
+    }
+
+    /// A session that reaches the cap means the stop never arrived: the
+    /// key-release (push-to-talk) or stop press (toggle) can be swallowed
+    /// while the frontmost app changes. Announce the stop, clear the
+    /// listener's pressed-gate so the next press starts a fresh session
+    /// instead of being swallowed, and let the caller transcribe what was
+    /// captured — mic capture can never run unbounded.
+    fn recover_lost_release(&mut self) {
+        self.hotkey_down.store(false, Ordering::Release);
+        eprintln!(
+            "Quil stopped the session after the {}-second safety cap: no stop event arrived, \
+             and hotkey events can be lost while apps change focus. Press {} again to dictate.",
+            session_cap(self.options.mode).as_secs(),
+            self.options.hotkey
+        );
     }
 
     fn play_chime(&self, filename: &str) {
@@ -548,5 +599,23 @@ impl Worker {
             self.inserter.insert(&delta)?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_mode_has_a_finite_session_cap() {
+        assert!(session_cap(Mode::Hold) > Duration::ZERO);
+        assert!(session_cap(Mode::Toggle) > Duration::ZERO);
+    }
+
+    #[test]
+    fn hold_sessions_cap_before_toggle_sessions() {
+        // The watchdog primarily guards push-to-talk: a hold that outlives
+        // its cap indicates a lost release, not a deliberate long dictation.
+        assert!(session_cap(Mode::Hold) < session_cap(Mode::Toggle));
     }
 }

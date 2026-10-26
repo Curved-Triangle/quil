@@ -5,7 +5,7 @@ SHELL := /bin/sh
 build:
 	scripts/cargo.sh build --release --workspace
 
-run: build
+run: models
 	target/release/quil dictate
 
 models: build

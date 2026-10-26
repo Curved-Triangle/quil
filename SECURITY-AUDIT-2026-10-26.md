@@ -128,4 +128,4 @@ A missed hotkey `Released` event (fast user switch, lock screen under press, CPU
 
 ---
 
-*Prepared 2026-10-26 against worktree `main` @ `10d3c11`. Findings M1, M2, L5, and L11, plus the M5 regression guard, were fixed in the follow-up commit that added this report; the remaining findings are tracked above.*
+*Prepared 2026-10-26 against worktree `main` @ `10d3c11`. Findings M1, M2, M6 (lost-release watchdog), L5, and L11, plus the M5 regression guard, were fixed in the follow-up commits that added this report; those commits also added model-fetch progress feedback and made `make run` fetch a missing model automatically. The remaining findings are tracked above.*
