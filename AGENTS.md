@@ -25,6 +25,8 @@ For user-facing install/run flows, use `make install`, `make models`, and `make 
 - `quil`: recording, file transcription, benchmarks, and early hotkey dictation. No HTTP dependency.
 - `quil-model-fetch`: the only component permitted to contain an HTTP client.
 
+ONNX Runtime permits exactly one environment per process. `moonshine.rs` keeps it in a process-wide static so the idle model unload and reload cycle in dictation reuses it instead of failing; execution providers are registered per session.
+
 `quil/src/dictate.rs` owns hotkey/session lifecycle. `streaming.rs` owns the energy VAD and append-only stable-prefix committer. `insert.rs` uses direct Core Foundation/AXUIElement bindings (`AXSelectedText`) with native keyboard-event fallback; do not reintroduce a Swift runtime dependency. Function keys are the only supported hotkeys so shortcuts cannot insert printable characters. Keep Accessibility and microphone explanations precise, and never log other keys or dictated text.
 
 Keep the runtime dependency graph free of HTTP clients, telemetry, automatic updates, and network-based model hubs. Model files are installed only by an explicit `quil-model-fetch` command or an equivalent deliberate UI action later.

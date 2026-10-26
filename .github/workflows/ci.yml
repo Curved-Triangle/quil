@@ -99,6 +99,10 @@ jobs:
           QUIL_TEST_MODEL_DIR: benchmark-data/ci-models
           QUIL_TEST_WAV: tests/fixtures/librispeech-sample.wav
         run: cargo test -p quil --test offline_runtime --locked
+      - name: Environment reuse regression
+        env:
+          QUIL_TEST_MODEL_DIR: benchmark-data/ci-models
+        run: cargo test -p quil-inference --locked
       - name: Benchmark regression check
         run: |
           target/release/quil \

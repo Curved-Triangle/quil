@@ -1,4 +1,9 @@
-use std::{borrow::Cow, collections::HashMap, path::Path};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    path::Path,
+    sync::{Mutex, OnceLock},
+};
 
 use crate::{
     Execution, InferenceError, LoadedModel, initialization_error,
@@ -6,6 +11,7 @@ use crate::{
 };
 use ndarray::{Array2, ArrayD, ArrayViewD, Axis, IxDyn};
 use ort::{
+    environment::Environment,
     ep, inputs,
     session::{Session, builder::GraphOptimizationLevel},
     value::{DynValueRef, TensorRef},
@@ -16,6 +22,37 @@ use quil_core::{
 
 const START_TOKEN: i64 = 1;
 const EOS_TOKEN: i64 = 2;
+
+/// ONNX Runtime permits exactly one environment per process, and `ort` cannot
+/// create a new one even after the first handle is dropped. Dictation unloads
+/// models when idle and reloads them on demand, so creating an environment per
+/// load made every reload fail with "only one environment is allowed per
+/// process". Keep one environment alive for the whole process and reuse it for
+/// every session; execution providers are registered per session instead,
+/// which always takes precedence over environment defaults.
+static ENVIRONMENT: OnceLock<Environment> = OnceLock::new();
+static ENVIRONMENT_INIT: Mutex<()> = Mutex::new(());
+
+fn shared_environment() -> Result<Environment, InferenceError> {
+    if let Some(existing) = ENVIRONMENT.get() {
+        return Ok(existing.clone());
+    }
+    // Serialize initialization: a racing thread must wait for the creator to
+    // store the environment rather than see a transient init failure.
+    let _guard = ENVIRONMENT_INIT.lock().map_err(|poisoned| {
+        initialization_error(
+            "moonshine",
+            format!("environment initialization lock poisoned: {poisoned}"),
+        )
+    })?;
+    if let Some(existing) = ENVIRONMENT.get() {
+        return Ok(existing.clone());
+    }
+    let environment = ort::init()
+        .build()
+        .map_err(|error| initialization_error("moonshine", error))?;
+    Ok(ENVIRONMENT.get_or_init(|| environment).clone())
+}
 
 pub fn load(
     model: &ModelSpec,
@@ -39,13 +76,12 @@ pub fn load(
         }
     };
 
-    let environment = ort::init()
-        .with_execution_providers(execution_providers(execution))
-        .build()
-        .map_err(|error| initialization_error("moonshine", error))?;
+    let environment = shared_environment()?;
+    let providers = execution_providers(execution);
     let encoder = Session::builder(&environment)
         .and_then(|builder| {
             builder
+                .with_execution_providers(&providers)?
                 .with_optimization_level(GraphOptimizationLevel::Level3)?
                 .commit_from_file(model_dir.join("encoder.onnx"))
         })
@@ -53,6 +89,7 @@ pub fn load(
     let decoder = Session::builder(&environment)
         .and_then(|builder| {
             builder
+                .with_execution_providers(&providers)?
                 .with_optimization_level(GraphOptimizationLevel::Level3)?
                 .commit_from_file(model_dir.join("decoder.onnx"))
         })
@@ -338,6 +375,40 @@ impl KeyValueCache {
 
 fn cache_name(layer: usize, attention: &str, part: &str) -> String {
     format!("past_key_values.{layer}.{attention}.{part}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shared_environment_is_reused_across_calls() {
+        // Creating a second environment would fail with "only one environment
+        // is allowed per process"; both calls must succeed against the single
+        // process-wide environment.
+        let first = shared_environment().expect("first environment");
+        let second = shared_environment().expect("reused environment");
+        drop((first, second));
+    }
+
+    #[test]
+    fn moonshine_reloads_after_a_model_unload() {
+        let Ok(model_dir) = std::env::var("QUIL_TEST_MODEL_DIR") else {
+            // Skipped when no local model artifacts are available; CI sets
+            // QUIL_TEST_MODEL_DIR for this test.
+            return;
+        };
+        let catalog = quil_core::embedded_catalog().expect("embedded catalog");
+        let spec = catalog.model("moonshine-tiny").expect("moonshine-tiny");
+        let model_dir = Path::new(&model_dir).join("moonshine-tiny");
+        let first = load(spec, &model_dir, Execution::Cpu).expect("first model load");
+        drop(first);
+        // Regression: the dictation worker unloads idle models and reloads on
+        // demand; this used to fail because each load created a new ONNX
+        // Runtime environment. The reload must succeed and stay usable.
+        let second = load(spec, &model_dir, Execution::Cpu).expect("reload after idle unload");
+        drop(second);
+    }
 }
 
 #[derive(Clone, Copy)]
